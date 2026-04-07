@@ -1,5 +1,0 @@
-pykitti
-rerun-sdk
-numpy
-opencv-python
-open3d

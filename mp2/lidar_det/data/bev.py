@@ -117,7 +117,61 @@ def rasterize_points_to_bev(points: np.ndarray, cfg: BEVConfig) -> np.ndarray:
     # placeholder
     c = len(cfg.channels)
     h, w = cfg.grid_size
-    return np.zeros((c, h, w), dtype=np.float32)
+    num_cells = h * w 
+    z_min, z_max = cfg.z_min, cfg.z_max
+    x, y, z, intensity = points[:, 0], points[:,1], points[:,2], points[:,3]
+    
+    # convert metrics Lidar coordinate to BEV
+    row, col, valid = metric_to_grid(x, y, cfg)
+    valid_z = (valid) & (z >= z_min) & (z <= z_max)
+    
+    # filter the invalid points and z 
+    row_valid = row[valid_z]
+    col_valid = col[valid_z]
+    z_valid = z[valid_z]
+    intensity_valid = intensity[valid_z]
+    
+    # flat idx, counts and weighted sums
+    flat_idx = row_valid * w + col_valid
+    counts = np.bincount(flat_idx, minlength=num_cells)
+    mask = counts > 0 
+    
+    # init max_height, mean_height, intensity, density
+    # max_height init to z_min
+    max_height = np.full(num_cells, z_min, dtype=np.float32)
+    mean_height = np.zeros(num_cells, dtype=np.float32)
+    mean_intensity= np.zeros(num_cells, dtype=np.float32)
+    density = np.zeros(num_cells, dtype=np.float32)
+    
+    if np.any(mask):
+        # max_height
+        np.maximum.at(max_height, flat_idx, z_valid)
+        max_height[mask] = (max_height[mask] - z_min) / (z_max - z_min)
+        max_height = np.clip(max_height, 0.0 ,1,0)
+        
+        # mean_height
+        sum_z = np.bincount(flat_idx, weights=z_valid, minlength=num_cells)
+        mean_height[mask] = sum_z[mask] / counts[mask]
+        mean_height[mask] = (mean_height[mask] - z_min) / (z_max - z_min)
+        mean_height = np.clip(mean_height, 0.0, 1.0)
+        
+        # mean intensity
+        sum_intensity = np.bincount(flat_idx, weights = intensity_valid, minlength=num_cells)
+        mean_intensity = sum_intensity[mask] / counts[mask]
+        mean_intensity = np.clip(mean_intensity, 0.0, 1.0)
+        
+        # density 
+        density[mask] = np.log1p(counts[mask]) / np.log1p(64.0)
+        density = np.clip(density, 0.0, 1.0)
+        
+    # 0 max_height where mask == 0
+    max_height[~mask] = 0
+    bev_flat = np.stack([max_height, mean_height, mean_intensity, density], axis=0)
+    bev = bev_flat.reshape(c, h, w)
+            
+    return bev
+
+
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
