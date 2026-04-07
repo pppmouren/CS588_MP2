@@ -147,7 +147,7 @@ def rasterize_points_to_bev(points: np.ndarray, cfg: BEVConfig) -> np.ndarray:
         # max_height
         np.maximum.at(max_height, flat_idx, z_valid)
         max_height[mask] = (max_height[mask] - z_min) / (z_max - z_min)
-        max_height = np.clip(max_height, 0.0 ,1,0)
+        max_height = np.clip(max_height, 0.0 ,1.0)
         
         # mean_height
         sum_z = np.bincount(flat_idx, weights=z_valid, minlength=num_cells)
@@ -157,7 +157,7 @@ def rasterize_points_to_bev(points: np.ndarray, cfg: BEVConfig) -> np.ndarray:
         
         # mean intensity
         sum_intensity = np.bincount(flat_idx, weights = intensity_valid, minlength=num_cells)
-        mean_intensity = sum_intensity[mask] / counts[mask]
+        mean_intensity[mask] = sum_intensity[mask] / counts[mask]
         mean_intensity = np.clip(mean_intensity, 0.0, 1.0)
         
         # density 
