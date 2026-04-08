@@ -254,30 +254,7 @@ def encode_targets(
             "rot":     (max_objs, 2) — [sin(yaw), cos(yaw)].
             "cls_ids": (max_objs,)  — class id for each encoded object.
     """
-    h_out, w_out = bev_cfg.output_grid_size
-    max_objs = target_cfg.max_objects
-
-    heatmap = np.zeros((num_classes, h_out, w_out), dtype=np.float32)
-    inds = np.zeros((max_objs,), dtype=np.int64)
-    mask = np.zeros((max_objs,), dtype=np.uint8)
-    reg = np.zeros((max_objs, 2), dtype=np.float32)
-    height = np.zeros((max_objs, 1), dtype=np.float32)
-    dims = np.zeros((max_objs, 3), dtype=np.float32)
-    rot = np.zeros((max_objs, 2), dtype=np.float32)
-    cls_targets = np.zeros((max_objs,), dtype=np.int64)
-
-    if boxes.size == 0:
-        return {
-            "heatmap": heatmap,
-            "inds": inds,
-            "mask": mask,
-            "reg": reg,
-            "height": height,
-            "dims": dims,
-            "rot": rot,
-            "cls_ids": cls_targets,
-        }
-
+    
     # ======= STUDENT TODO START (edit only inside this block) =======
     # TODO(student): fill in heatmap, inds, mask, reg, height, dims, rot, cls_ids
     #
@@ -300,6 +277,54 @@ def encode_targets(
     #        cls_targets[out_count] = cls_id
 
     # ======= STUDENT TODO END (do not change code outside this block) =======
+    h_out, w_out = bev_cfg.output_grid_size
+    max_objs = target_cfg.max_objects
+    resolution = bev_cfg.output_resolution
+
+    heatmap = np.zeros((num_classes, h_out, w_out), dtype=np.float32)
+    inds = np.zeros((max_objs,), dtype=np.int64)
+    mask = np.zeros((max_objs,), dtype=np.uint8)
+    reg = np.zeros((max_objs, 2), dtype=np.float32)
+    height = np.zeros((max_objs, 1), dtype=np.float32)
+    dims = np.zeros((max_objs, 3), dtype=np.float32)
+    rot = np.zeros((max_objs, 2), dtype=np.float32)
+    cls_targets = np.zeros((max_objs,), dtype=np.int64)
+    out_count = 0
+    for i in range(len(boxes)):
+        # break if exceed the maximum objects detected
+        if out_count >= max_objs:
+            break
+        x, y, z, l, w, h, yaw = boxes[i]
+        class_id = class_ids[i]
+
+        # metrics to output_grid, if the point falls outside the grid, skip
+        uf, vf, valid = metric_to_output_grid(x, y, bev_cfg)
+        if not valid:
+            continue
+        ui, vi = int(uf), int(vf)
+        ur = uf - ui
+        vr = vf - vi
+
+        # draw heap map
+        obj_w = l / resolution
+        obj_h = w / resolution
+        radius = gaussian_radius([obj_h, obj_w], target_cfg.gaussian_overlap)
+        radius = max(int(radius), target_cfg.min_gaussian_radius)
+        draw_gaussian(heatmap[class_id], [ui,vi], radius)
+        
+        # fill the data
+        inds[out_count] = vi * w_out + ui
+        mask[out_count] = 1
+        reg[out_count] = [ur, vr]
+        height[out_count,0] = z
+        if target_cfg.use_log_dims:
+            dims[out_count] = [np.log(l), np.log(w), np.log(h)]
+        else:
+            dims[out_count] = [l,w,h]
+        rot[out_count] = [np.sin(yaw), np.cos(yaw)]
+        cls_targets[out_count] = class_id
+        
+        out_count+=1
 
     return {
         "heatmap": heatmap,
@@ -341,11 +366,43 @@ def decode_targets(
     #   5. Recover dims: np.exp(dims) if use_log_dims, else dims as-is.
     #   6. Recover yaw: np.arctan2(rot[:,0], rot[:,1])
     #   7. Stack into (N,7) and return with class ids and unit scores.
-
-    # placeholders
-    boxes = np.zeros((0, 7), dtype=np.float32)
-    classes = np.zeros((0,), dtype=np.int64)
-    scores = np.zeros((0,), dtype=np.float32)
+    mask = encoded["mask"].astype(bool)
+    
+    if not np.any(mask):
+        boxes = np.zeros((0, 7), dtype=np.float32)
+        classes = np.zeros((0,), dtype=np.int64)
+        scores = np.zeros((0,), dtype=np.float32)
+        return boxes, classes, scores
+    
+    valid_inds = encoded["inds"][mask]
+    valid_reg = encoded["reg"][mask]
+    valid_height = encoded["height"][mask]
+    valid_dims = encoded["dims"][mask]
+    valid_rot = encoded["rot"][mask]
+    valid_cls_ids = encoded["cls_ids"][mask]    
+    
+    #recover metrics x, y 
+    h_out, w_out = bev_cfg.output_grid_size
+    ui = valid_inds % w_out
+    vi = valid_inds //w_out
+    uf = ui + valid_reg[:, 0]
+    vf = vi + valid_reg[:, 1]
+    x, y = output_grid_to_metric(uf, vf, bev_cfg)
+    # recover z
+    z = valid_height[:, 0]
+    # recover l, w, h
+    if target_cfg.use_log_dims:
+        dims_exp = np.exp(valid_dims)
+        l,w,h = dims_exp[:,0], dims_exp[:,1], dims_exp[:,2]
+    else:
+        l,w,h = valid_dims[:,0], valid_dims[:,1], valid_dims[:,2]
+    # recover yaw
+    yaw = np.arctan2(valid_rot[:,0], valid_rot[:,1])
+    
+    boxes = np.stack([x,y,z,l,w,h,yaw], axis=-1)
+    scores = np.ones_like(valid_cls_ids, dtype=np.float32)
+    classes = valid_cls_ids
+    
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
     return boxes, classes, scores
