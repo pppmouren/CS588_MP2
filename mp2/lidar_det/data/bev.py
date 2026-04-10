@@ -113,8 +113,6 @@ def rasterize_points_to_bev(points: np.ndarray, cfg: BEVConfig) -> np.ndarray:
     #     (count == 0) using the per-cell count mask. Otherwise mean_height
     #     will be non-zero in empty cells due to the z_min offset.
 
-
-    # placeholder
     c = len(cfg.channels)
     h, w = cfg.grid_size
     num_cells = h * w 
@@ -170,7 +168,6 @@ def rasterize_points_to_bev(points: np.ndarray, cfg: BEVConfig) -> np.ndarray:
     bev = bev_flat.reshape(c, h, w)
             
     return bev
-
 
     # ======= STUDENT TODO END (do not change code outside this block) =======
 

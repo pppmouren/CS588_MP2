@@ -441,9 +441,10 @@ def _nms_heatmap(heatmap: torch.Tensor, kernel: int = 3) -> torch.Tensor:
     #   2. Apply F.max_pool2d with stride=1 and that padding.
     #   3. Build a keep mask: pixels where pooled == original.
     #   4. Return heatmap * keep (zeros out non-maxima).
-
-    # placeholder — passes heatmap through unchanged (no suppression)
-    return heatmap
+    padding = (kernel - 1) // 2
+    heat_max = F.max_pool2d(heatmap, kernel_size=kernel, stride=1, padding=padding)
+    mask = (heatmap == heat_max).float()
+    return heatmap * mask
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
 
@@ -596,16 +597,55 @@ def decode_predictions(
     #   8. Recover yaw: torch.atan2(rot[...,0], rot[...,1])
     #   9. Filter by score_threshold; stack into (N,7) boxes per batch item.
 
-    # placeholders
+    # 1. sigmoid + clamp heatmap logits to probabilities in (1e-4, 1-1e-4).
+    heatmap = torch.sigmoid(preds["heatmap"]).clamp(min=1e-4, max=1-1e-4)
+    
+    # 2. Local-max suppression via _nms_heatmap() (your implementation above).
+    nms_heatmap = _nms_heatmap(heatmap)
+    
+    # 3. Extract top-k candidates per batch item with _topk() (provided above), giving scores, flat inds, class ids, grid ys, grid xs.
+    topk_score, topk_inds, topk_clsids, topk_ys, topk_xs = _topk(nms_heatmap)
+    
+    # 4. Gather regression values at those indices with _transpose_and_gather_feat() (provided above).
+    reg = _transpose_and_gather_feat(preds["reg"], topk_inds)
+    height = _transpose_and_gather_feat(preds["height"], topk_inds)
+    dims = _transpose_and_gather_feat(preds["dims"], topk_inds)
+    rot = _transpose_and_gather_feat(preds["rot"], topk_inds)
+    
+    # 5. Refine grid coords:  xs += reg[...,0],  ys += reg[...,1]
+    topk_xs += reg[..., 0]
+    topk_ys += reg[..., 1]
+    
+    # 6. Convert to metric, where res = bev_cfg.output_resolution
+    res = bev_cfg.output_resolution
+    h_out, _ = bev_cfg.output_grid_size
+    x = bev_cfg.x_min + topk_xs * res
+    y = bev_cfg.y_min + ((h_out - 1) - topk_ys) * res
+    
+    # 7. Recover dims: torch.exp(dims) if use_log_dims, else as-is.
+    # 8. Recover yaw: torch.atan2(rot[...,0], rot[...,1])
+    if target_cfg.use_log_dims:
+        dims = torch.exp(dims)
+    yaw = torch.atan2(rot[..., 0], rot[..., 1])
+    
+    # gather z, l, w, h
+    z = height.squeeze(-1)
+    l = dims[..., 0]
+    w = dims[..., 1]
+    h = dims[..., 2]
+    
+    # filter by score for each batch
+    out = []
     bsz = list(preds.values())[0].shape[0]
-    out = [
-        {
-            "boxes": np.zeros((0, 7), dtype=np.float32),
-            "scores": np.zeros((0,), dtype=np.float32),
-            "classes": np.zeros((0,), dtype=np.int64),
-        }
-        for _ in range(bsz)
-    ]
+    all_boxes = torch.stack([x, y, z, l ,w, h, yaw], dim=-1)
+
+    for i in range(bsz):
+        score_mask = topk_score[i].ge(score_threshold).float()
+        scores = topk_score[i]*score_mask
+        boxes = all_boxes[i]*score_mask
+        classes = topk_clsids[i]*score_mask
+        out.append([{"boxes": boxes, "scores": scores, "classes": classes}])
+
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
     return out
