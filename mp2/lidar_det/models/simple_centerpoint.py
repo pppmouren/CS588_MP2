@@ -105,8 +105,32 @@ class SimpleCenterPoint(nn.Module):
         # TODO(student): create the backbone layers listed in the docstring above.
         # Refer to the architecture diagram in the handout for block order,
         # channel sizes, and strides. Pass use_batchnorm to every ResidualBlock.
-
-        pass  # placeholder — replace with your layer definitions
+        
+        # stem layer
+        stem_layer = [nn.Conv2d(in_channels, base_ch, kernel_size=3, stride=1, padding=1, bias=False)]
+        if use_batchnorm:
+            stem_layer.append(nn.BatchNorm2d(base_ch))
+        stem_layer.append(nn.ReLU(inplace=True))
+        self.stem = nn.Sequential(*stem_layer)
+        # stem_res
+        self.stem_res = ResidualBlock(base_ch, base_ch, stride=1, use_batchnorm=use_batchnorm)
+        # ResBlock neck[0]->down1->mid1
+        self.neck0 = ResidualBlock(base_ch, base_ch, stride=1, use_batchnorm=use_batchnorm)
+        self.down1 = ResidualBlock(base_ch, 128, stride=2, use_batchnorm=use_batchnorm)
+        self.mid1 = ResidualBlock(128, 128, stride=1, use_batchnorm=use_batchnorm)
+        # ResBlock neck[1]->down2->mid2
+        self.neck1 = ResidualBlock(128, 128, stride=1, use_batchnorm=use_batchnorm)
+        self.down2 = ResidualBlock(128, 128, stride=2, use_batchnorm=use_batchnorm)
+        self.mid2 = ResidualBlock(128,128, stride=1, use_batchnorm=use_batchnorm)
+        # ResBlock neck[2]
+        self.neck2 = ResidualBlock(128, 128, stride=1, use_batchnorm=use_batchnorm)
+        self.neck = nn.Sequential(self.neck0, self.neck1, self.neck2)
+        # extra block
+        extra_layers = []
+        for i in range(extra_res_blocks):
+            extra_layers.append(ResidualBlock(128, 128, stride=1, use_batchnorm=use_batchnorm))
+        self.extra_blocks = nn.Sequential(*extra_layers)
+        
         # ======= STUDENT TODO __init__ END =======
 
         feat_ch = base_ch * 2
@@ -137,7 +161,17 @@ class SimpleCenterPoint(nn.Module):
         W_out = x.shape[3] // 4
         x = torch.zeros(B, feat_ch, H_out, W_out, device=x.device, dtype=x.dtype)
         # ======= STUDENT TODO forward END =======
-
+        x = self.stem(x)
+        x = self.stem_res(x)
+        x = self.neck[0](x)
+        x = self.down1(x)
+        x = self.mid1(x)
+        x = self.neck[1](x)
+        x = self.down2(x)
+        x = self.mid2(x)
+        x = self.neck[2](x)
+        x = self.extra_blocks(x)
+        
         return {
             "heatmap": self.head_heatmap(x),
             "reg": self.head_reg(x),
@@ -183,9 +217,22 @@ def _focal_loss_centerpoint(pred_hm: torch.Tensor, gt_hm: torch.Tensor) -> torch
     """
     # ======= STUDENT TODO START (edit only inside this block) =======
     # TODO(student): implement the CenterNet focal loss
-
-    # placeholder
-    loss = torch.tensor(0.0, device=pred_hm.device, requires_grad=True)
+    # get the mask and N_pos
+    pos_mask = gt_hm.eq(1.0).float()
+    neg_mask = gt_hm.lt(1.0).float()
+    N_pos = pos_mask.sum()
+    # compute pos, neg loss 
+    pos_loss = -torch.pow(1-pred_hm, 2) * torch.log(pred_hm)
+    neg_loss = -torch.pow(1-gt_hm, 4)*torch.pow(pred_hm, 2)*torch.log(1-pred_hm)
+    pos_loss = pos_loss*pos_mask
+    neg_loss = neg_loss*neg_mask
+    
+    if N_pos < 1:
+        loss = neg_loss.sum()
+    else:
+        total_loss = pos_loss.sum() + neg_loss.sum()
+        loss = total_loss / N_pos
+        
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
     return loss
@@ -257,11 +304,12 @@ def _reg_l1_loss(
     #        pred = _transpose_and_gather_feat(pred_map, inds)  -> (B, max_objs, C)
     #   2. Expand mask to (B, max_objs, 1) and cast to float.
     #   3. Compute: loss = sum(|pred * mask - target * mask|) / max(mask.sum(), 1)
-
-    # placeholder
-    loss = torch.tensor(0.0, device=pred_map.device, requires_grad=True)
+    pred = _transpose_and_gather_feat(pred_map, inds)
+    mask_expand = mask.unsqueeze(-1).float()
+    mask_sum = mask_expand.sum()
+    loss = torch.sum(torch.abs((pred-target)*mask_expand)/max(mask_sum,1))
+    
     # ======= STUDENT TODO END (do not change code outside this block) =======
-
     return loss
 
 
@@ -296,16 +344,24 @@ def compute_losses(
     #   4. Weighted sum: train_cfg.heatmap_weight, offset_weight, height_weight,
     #      dims_weight, yaw_weight.
 
-    # placeholders
-    zero = torch.tensor(0.0, device=preds["heatmap"].device, requires_grad=True)
-    loss_heatmap = zero
-    loss_reg = zero
-    loss_height = zero
-    loss_dims = zero
-    loss_rot = zero
-    total = zero
+    heatmap_weight = train_cfg.heatmap_weight
+    reg_weight = train_cfg.offset_weight
+    height_weight = train_cfg.height_weight
+    dims_weight = train_cfg.dims_weight
+    rot_weight = train_cfg.yaw_weight
+    
+    preds["heatmap"] = _sigmoid_clamped(preds["heatmap"])
+    inds = targets["inds"]
+    mask = targets["mask"]
+    loss_heatmap = _focal_loss_centerpoint(preds["heatmap"], targets["heatmap"]) * heatmap_weight
+    loss_reg = _reg_l1_loss(preds["reg"], targets["reg"], inds, mask) * reg_weight
+    loss_height = _reg_l1_loss(preds["height"], targets["height"], inds, mask) * height_weight
+    loss_dims = _reg_l1_loss(preds["dims"], targets["dims"], inds, mask) * dims_weight
+    loss_rot = _reg_l1_loss(preds["rot"], targets["rot"], inds, mask) * rot_weight
+    total = loss_heatmap + loss_reg + loss_height + loss_dims + loss_rot
+    
     # ======= STUDENT TODO END (do not change code outside this block) =======
-
+    
     return {
         "total": total,
         "heatmap": loss_heatmap,
@@ -353,15 +409,18 @@ def train_step(
     #   4. Backward pass
     #   5. Update weights
     #   6. Return the loss dictionary.
-
-    # placeholder — returns zero losses without updating the model
-    zero = torch.tensor(0.0, device=bev.device, requires_grad=True)
+    optimizer.zero_grad()
+    preds = model(bev)
+    losses = compute_losses(preds, targets, train_cfg)
+    losses["total"].backward()
+    optimizer.step()
+    
     return {
-        "total": zero,
-        "heatmap": zero,
-        "reg": zero,
-        "height": zero,
-        "dims": zero,
-        "rot": zero,
+        "total": losses["total"],
+        "heatmap": losses["heatmap"],
+        "reg": losses["reg"],
+        "height": losses["height"],
+        "dims": losses["dims"],
+        "rot": losses["rot"],
     }
     # ======= STUDENT TODO END (do not change code outside this block) =======
