@@ -159,8 +159,7 @@ class SimpleCenterPoint(nn.Module):
         feat_ch = self._base_ch * 2
         H_out = x.shape[2] // 4
         W_out = x.shape[3] // 4
-        x = torch.zeros(B, feat_ch, H_out, W_out, device=x.device, dtype=x.dtype)
-        # ======= STUDENT TODO forward END =======
+        # x = torch.zeros(B, feat_ch, H_out, W_out, device=x.device, dtype=x.dtype)
         x = self.stem(x)
         x = self.stem_res(x)
         x = self.neck[0](x)
@@ -171,7 +170,8 @@ class SimpleCenterPoint(nn.Module):
         x = self.mid2(x)
         x = self.neck[2](x)
         x = self.extra_blocks(x)
-        
+        # ======= STUDENT TODO forward END =======
+
         return {
             "heatmap": self.head_heatmap(x),
             "reg": self.head_reg(x),
