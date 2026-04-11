@@ -640,11 +640,11 @@ def decode_predictions(
     all_boxes = torch.stack([x, y, z, l ,w, h, yaw], dim=-1)
 
     for i in range(bsz):
-        score_mask = topk_score[i].ge(score_threshold).float()
-        scores = topk_score[i]*score_mask
-        boxes = all_boxes[i]*score_mask
-        classes = topk_clsids[i]*score_mask
-        out.append([{"boxes": boxes, "scores": scores, "classes": classes}])
+        score_mask = topk_score[i] > score_threshold
+        scores = topk_score[i][score_mask].cpu().detach().numpy()
+        boxes = all_boxes[i][score_mask].cpu().detach().numpy()
+        classes = topk_clsids[i][score_mask].cpu().detach().numpy().astype(np.int64)
+        out.append({"boxes": boxes, "scores": scores, "classes": classes})
 
     # ======= STUDENT TODO END (do not change code outside this block) =======
 
