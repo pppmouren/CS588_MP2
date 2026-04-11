@@ -1,0 +1,20 @@
+{
+  "run_name": "task4_full_train",
+  "train_split": "train",
+  "val_split": "val",
+  "test_split": "test",
+  "epochs": 10,
+  "batch_size": 8,
+  "optimizer": "adam",
+  "lr_scheduler": "fixed",
+  "resume_checkpoint": "",
+  "resume_optimizer": false,
+  "eval_every": 1,
+  "fast_eval_axis_aligned": false,
+  "device": "cuda",
+  "tensorboard_log_dir": "",
+  "stdout_log": "outputs/processed_train/task4_full_train/stdout.log.txt",
+  "train_wall_time_s": 3995.9562024730258,
+  "best_val_mAP": 0.4543457001464606,
+  "test_mAP": 0.6037426946503361
+}
