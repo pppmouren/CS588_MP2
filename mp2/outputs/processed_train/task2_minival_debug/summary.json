@@ -14,7 +14,7 @@
   "device": "cuda",
   "tensorboard_log_dir": "",
   "stdout_log": "outputs/processed_train/task2_minival_debug/stdout.log.txt",
-  "train_wall_time_s": 72.65251485304907,
-  "best_val_mAP": 0.0,
-  "test_mAP": 0.0
+  "train_wall_time_s": 333.50623457785696,
+  "best_val_mAP": 0.9902440352183075,
+  "test_mAP": 0.9902440352183075
 }

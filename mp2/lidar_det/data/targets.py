@@ -604,7 +604,7 @@ def decode_predictions(
     nms_heatmap = _nms_heatmap(heatmap)
     
     # 3. Extract top-k candidates per batch item with _topk() (provided above), giving scores, flat inds, class ids, grid ys, grid xs.
-    topk_score, topk_inds, topk_clsids, topk_ys, topk_xs = _topk(nms_heatmap)
+    topk_score, topk_inds, topk_clsids, topk_ys, topk_xs = _topk(nms_heatmap, topk)
     
     # 4. Gather regression values at those indices with _transpose_and_gather_feat() (provided above).
     reg = _transpose_and_gather_feat(preds["reg"], topk_inds)

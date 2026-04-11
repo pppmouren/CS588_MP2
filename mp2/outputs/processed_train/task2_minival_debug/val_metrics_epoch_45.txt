@@ -5,6 +5,6 @@ loss_reg=0.072309
 loss_height=0.045383
 loss_dims=0.093559
 loss_rot=0.098843
-mAP=0.000000
-epoch_time_s=0.591
-class=Car AP=0.000000 num_gt=91 num_det=0
+mAP=0.989011
+epoch_time_s=0.504
+class=Car AP=0.989011 num_gt=91 num_det=864
