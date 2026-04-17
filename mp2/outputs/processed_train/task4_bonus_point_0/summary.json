@@ -1,0 +1,20 @@
+{
+  "run_name": "task4_bonus_point_0",
+  "train_split": "train",
+  "val_split": "val",
+  "test_split": "test",
+  "epochs": 10,
+  "batch_size": 8,
+  "optimizer": "adam",
+  "lr_scheduler": "cosine",
+  "resume_checkpoint": "",
+  "resume_optimizer": false,
+  "eval_every": 1,
+  "fast_eval_axis_aligned": false,
+  "device": "cuda",
+  "tensorboard_log_dir": "",
+  "stdout_log": "outputs/processed_train/task4_bonus_point_0/stdout.log.txt",
+  "train_wall_time_s": 3947.778862474952,
+  "best_val_mAP": 0.4995447766600153,
+  "test_mAP": 0.6401320625961624
+}
