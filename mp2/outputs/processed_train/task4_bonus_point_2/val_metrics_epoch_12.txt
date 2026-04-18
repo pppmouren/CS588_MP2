@@ -1,10 +1,10 @@
 split=val
-loss_total=3.770226
-loss_heatmap=2.586366
-loss_reg=0.381030
-loss_height=0.137482
-loss_dims=0.254349
-loss_rot=0.411000
-mAP=0.495084
-epoch_time_s=55.761
-class=Car AP=0.495084 num_gt=5453 num_det=56998
+loss_total=3.684559
+loss_heatmap=2.428242
+loss_reg=0.396518
+loss_height=0.142566
+loss_dims=0.248474
+loss_rot=0.468760
+mAP=0.439902
+epoch_time_s=57.105
+class=Car AP=0.439902 num_gt=5453 num_det=52411
