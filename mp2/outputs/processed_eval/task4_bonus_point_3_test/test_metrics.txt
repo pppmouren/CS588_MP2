@@ -1,0 +1,15 @@
+split=test
+checkpoint=outputs/processed_train/task4_bonus_point_3/best_val.pt
+score_thresh=0.01
+topk=100
+nms_iou=0.1
+iou_threshold=0.5
+loss_total=2.447391
+loss_heatmap=1.351900
+loss_reg=0.259836
+loss_height=0.145887
+loss_dims=0.254222
+loss_rot=0.435546
+mAP=0.656047
+pr_curve=outputs/processed_eval/task4_bonus_point_3_test/test_pr_curve.png
+class=Car AP=0.656047 num_gt=5444 num_det=91373
