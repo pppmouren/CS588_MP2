@@ -1,0 +1,79 @@
+{
+  "data": {
+    "root_dir": "data",
+    "seq_date": "2011_09_26",
+    "seq_drive": "0005",
+    "class_names": [
+      "Car"
+    ],
+    "include_van_as_car": true,
+    "merge_all_vehicles_to_car": true,
+    "require_camera_fov": true
+  },
+  "bev": {
+    "x_min": 0.0,
+    "x_max": 70.4,
+    "y_min": -40.0,
+    "y_max": 40.0,
+    "z_min": -3.0,
+    "z_max": 1.0,
+    "resolution": 0.2,
+    "channels": [
+      "max_height",
+      "mean_height",
+      "intensity",
+      "density"
+    ],
+    "out_stride": 4
+  },
+  "target": {
+    "gaussian_overlap": 0.1,
+    "min_gaussian_radius": 1,
+    "max_objects": 128,
+    "use_log_dims": true
+  },
+  "model": {
+    "base_channels": 64,
+    "use_batchnorm": true,
+    "extra_res_blocks": 0
+  },
+  "train": {
+    "seed": 42,
+    "batch_size": 8,
+    "num_workers": 4,
+    "learning_rate": 0.002,
+    "weight_decay": 0.0001,
+    "num_steps": 3000,
+    "log_every": 20,
+    "save_every": 500,
+    "checkpoint_dir": "outputs/checkpoints",
+    "resume_checkpoint": "",
+    "use_tensorboard": true,
+    "tensorboard_dir": "outputs/tensorboard",
+    "tb_log_every": 10,
+    "tb_image_every": 100,
+    "tb_dense_pred_heatmap_thresh": 0.01,
+    "run_val": true,
+    "val_every": 100,
+    "val_batch_size": 8,
+    "heatmap_weight": 1.0,
+    "offset_weight": 1.0,
+    "height_weight": 1.0,
+    "dims_weight": 1.0,
+    "yaw_weight": 1.0,
+    "frame_start": 0,
+    "frame_end": 200,
+    "overfit_num_frames": 50
+  },
+  "infer": {
+    "score_threshold": 0.2,
+    "topk": 100,
+    "nms_iou_threshold": 0.1,
+    "max_detections": 100,
+    "use_rotated_nms": true
+  },
+  "eval": {
+    "iou_threshold": 0.5
+  },
+  "device": "cuda"
+}

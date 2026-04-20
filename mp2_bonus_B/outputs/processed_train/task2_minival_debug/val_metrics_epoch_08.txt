@@ -1,0 +1,10 @@
+split=minival
+loss_total=3.910322
+loss_heatmap=2.037919
+loss_reg=0.406572
+loss_height=0.239064
+loss_dims=0.446947
+loss_rot=0.779821
+mAP=0.029653
+epoch_time_s=0.398
+class=Car AP=0.029653 num_gt=91 num_det=877
