@@ -10,7 +10,7 @@ class DataConfig:
     root_dir: str = "data"
     seq_date: str = "2011_09_26"
     seq_drive: str = "0005"
-    class_names: List[str] = field(default_factory=lambda: ["Car", "Pedestrain", "Cyclist"])
+    class_names: List[str] = field(default_factory=lambda: ["Car"])
     include_van_as_car: bool = True
     merge_all_vehicles_to_car: bool = True
     require_camera_fov: bool = True
